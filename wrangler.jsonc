@@ -9,5 +9,12 @@
   "assets": {
     "directory": "./.output/public/"
   },
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tanstack-db",
+      "database_id": "e077d298-e573-4204-9ad8-58b4653aaa2a"
+    }
+  ]
 }

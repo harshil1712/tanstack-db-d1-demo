@@ -47,9 +47,139 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
+  // Fetch todos from the database
   const { data: todos } = useLiveQuery((q) =>
     q.from({ todoCollection }).keyBy("@id").select("@*").orderBy("@created_at")
   );
+
+  const [mutationError, setMutationError] = React.useState<string | null>(null);
+  const [newTodoTitle, setNewTodoTitle] = React.useState("");
+
+  const createMutation = useOptimisticMutation({
+    mutationFn: async ({ transaction }) => {
+      setMutationError(null);
+      const mutation = transaction.mutations[0] as PendingMutation<Todo>;
+
+      const { modified } = mutation;
+
+      const response = await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: modified.title }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const err = `Failed to create todo on server: ${errorText}`;
+        setMutationError(err);
+        throw new Error(err);
+      }
+
+      await (mutation.collection as typeof todoCollection).refetch();
+    },
+  });
+
+  const updateMutation = useOptimisticMutation({
+    mutationFn: async ({ transaction }) => {
+      setMutationError(null);
+      const mutation = transaction.mutations[0] as PendingMutation<Todo>;
+
+      const { modified } = mutation;
+
+      try {
+        const response = await fetch(`/api/todos`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: modified.id,
+            completed: modified.completed,
+          }),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Failed to update todo ${modified.id} on server: ${errorText}`
+          );
+        }
+        await (mutation.collection as typeof todoCollection).refetch();
+      } catch (error: any) {
+        setMutationError(error.message || "Failed to update todo.");
+        throw error;
+      }
+    },
+  });
+
+  const deleteMutation = useOptimisticMutation({
+    mutationFn: async ({ transaction }) => {
+      setMutationError(null);
+      const mutation = transaction.mutations[0] as PendingMutation<Todo>;
+
+      const { original } = mutation;
+
+      try {
+        const response = await fetch(`/api/todos`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: original.id,
+          }),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Failed to delete todo ${original.id} on server: ${errorText}`
+          );
+        }
+        await (mutation.collection as typeof todoCollection).refetch();
+      } catch (error: any) {
+        setMutationError(error.message || "Failed to delete todo.");
+        throw error;
+      }
+    },
+  });
+
+  const handleCreateTodo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTodoTitle.trim()) return;
+
+    const optimisticTodo: Todo = {
+      id: crypto.randomUUID(), // Generate temporary client-side ID
+      title: newTodoTitle.trim(),
+      completed: false,
+      created_at: new Date(), // Optimistic creation date
+      updated_at: new Date(), // Optimistic update date
+    };
+
+    createMutation.mutate(() => {
+      todoCollection.insert(optimisticTodo);
+    });
+    setNewTodoTitle("");
+  };
+
+  const handleToggleComplete = (todoItem: Todo) => {
+    updateMutation.mutate(() => {
+      todoCollection.update(
+        Array.from(todoCollection.state.values()).find(
+          (todo) => todo.id === todoItem.id
+        )!,
+        (draft) => {
+          draft.completed = !draft.completed;
+          draft.updated_at = new Date();
+        }
+      );
+    });
+  };
+
+  const handleDelete = (todoItem: Todo) => {
+    deleteMutation.mutate(() => {
+      todoCollection.delete(
+        Array.from(todoCollection.state.values()).find(
+          (todo) => todo.id === todoItem.id
+        )!
+      );
+    });
+  };
+
   return (
     <div
       className="p-2"
@@ -59,13 +189,53 @@ function Home() {
         margin: "auto",
       }}
     >
-      <h3 style={{ textAlign: "center" }}>My To-Do List</h3>
+      <h3 style={{ textAlign: "center", color: "#333" }}>My To-Do List</h3>
 
-      {/* {mutationError && (
-        <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#ffebee', border: '1px solid #ffcdd2', color: '#c62828', borderRadius: '4px' }}>
+      <form
+        onSubmit={handleCreateTodo}
+        style={{ display: "flex", marginBottom: "20px" }}
+      >
+        <input
+          type="text"
+          value={newTodoTitle}
+          onChange={(e) => setNewTodoTitle(e.target.value)}
+          placeholder="What needs to be done?"
+          style={{
+            flexGrow: 1,
+            padding: "10px",
+            border: "1px solid #ccc",
+            borderRadius: "4px 0 0 4px",
+          }}
+        />
+        <button
+          type="submit"
+          style={{
+            padding: "10px 15px",
+            border: "1px solid #007bff",
+            backgroundColor: "#007bff",
+            color: "white",
+            borderRadius: "0 4px 4px 0",
+            cursor: "pointer",
+          }}
+        >
+          Add Todo
+        </button>
+      </form>
+
+      {mutationError && (
+        <div
+          style={{
+            marginBottom: "15px",
+            padding: "10px",
+            backgroundColor: "#ffebee",
+            border: "1px solid #ffcdd2",
+            color: "#c62828",
+            borderRadius: "4px",
+          }}
+        >
           <p>Error: {mutationError}</p>
         </div>
-      )} */}
+      )}
 
       <ul style={{ listStyle: "none", padding: 0 }}>
         {todos?.map((todo) => (
@@ -77,17 +247,13 @@ function Home() {
               padding: "10px 15px",
               borderBottom: "1px solid #eee",
               backgroundColor: "#fff",
-              // Optimistic updates provide immediate visual feedback.
-              // No specific 'isPending' styling here as it's not directly available from the hook.
             }}
           >
             <input
               type="checkbox"
               checked={todo.completed}
-              // onChange={() => handleToggleComplete(todo)}
+              onChange={() => handleToggleComplete(todo)}
               style={{ marginRight: "15px", transform: "scale(1.2)" }}
-              // No direct 'isPending' for individual items from this hook.
-              // Disabling during any server operation might be too broad if not desired.
             />
             <span
               style={{
@@ -99,7 +265,7 @@ function Home() {
               {todo.title}
             </span>
             <button
-              // onClick={() => handleDelete(todo.id)}
+              onClick={() => handleDelete(todo)}
               style={{
                 marginLeft: "10px",
                 color: "#ff4d4d",

@@ -1,6 +1,8 @@
-import type { KVNamespace } from "@cloudflare/workers-types";
+import type { D1Database } from "@cloudflare/workers-types";
 
-interface CloudflareBindings {}
+interface CloudflareBindings {
+  DB: D1Database;
+}
 /**
  * Will only work when being accessed on the server. Obviously, CF bindings are not available in the browser.
  * @returns
