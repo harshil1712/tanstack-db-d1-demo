@@ -117,6 +117,7 @@ function Home() {
       const { original } = mutation;
 
       try {
+        console.log("Delete with useOptimisticMutation");
         const response = await fetch(`/api/todos`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -172,6 +173,7 @@ function Home() {
 
   const handleDelete = (todoItem: Todo) => {
     deleteMutation.mutate(() => {
+      console.log("Delete inside handleDelete -> mutate");
       todoCollection.delete(
         Array.from(todoCollection.state.values()).find(
           (todo) => todo.id === todoItem.id
