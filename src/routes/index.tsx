@@ -117,13 +117,10 @@ function Home() {
       const { original } = mutation;
 
       try {
-        console.log("Delete with useOptimisticMutation");
-        const response = await fetch(`/api/todos`, {
+        console.log("Delete with useOptimisticMutation, sending ID in URL query param");
+        const response = await fetch(`/api/todos?id=${original.id}`, {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: original.id,
-          }),
+          // No Content-Type header or body needed for this DELETE request
         });
         if (!response.ok) {
           const errorText = await response.text();

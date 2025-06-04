@@ -97,26 +97,32 @@ export const APIRoute = createAPIFileRoute("/api/todos")({
     }
   },
   DELETE: async ({ request }) => {
-    console.info("Deleting todo... @", request.url);
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+
+    console.info(`DELETE /api/todos?id=${id} - Attempting to delete todo.`);
+
+    if (!id || typeof id !== "string") {
+      return json({ error: "Invalid or missing todo ID in query parameter" }, { status: 400 });
+    }
+
     try {
+      console.log(`DELETE [query param]: Before getBindings() for id: ${id}`);
       const { DB } = await getBindings();
-      const body = (await request.json()) as { id: string };
+      console.log(`DELETE [query param]: After getBindings(), DB object: ${DB ? 'exists' : 'null or undefined'}`);
 
-      if (!body.id || typeof body.id !== "string") {
-        return json({ error: "Invalid todo ID" }, { status: 400 });
-      }
-
-      const { id } = body;
-
-      console.log(`Attempting to delete todo with id: ${id} using DB.exec()`);
+      console.log(`DELETE [query param]: Attempting DB.exec() for id: ${id}`);
       const deleteResult = await DB.exec(`DELETE FROM todos WHERE id = '${id}'`);
-      console.log('DB.exec() result:', JSON.stringify(deleteResult));
-      console.log(`Successfully deleted todo with id: ${id} using DB.exec()`);
+      // Log the raw result; its structure seems to differ from current TS types.
+      console.log(`DELETE [query param]: DB.exec() result: ${JSON.stringify(deleteResult)}`);
 
-      return json({ id });
+      // If DB.exec() encounters an error, it should throw. 
+      // If it doesn't throw, we assume the command was accepted by D1.
+      // We can inspect the logged 'deleteResult' to understand what D1 returned (e.g., rows affected).
+      console.log(`DELETE [query param]: Successfully processed delete for id: ${id} (DB.exec did not throw)`);
+      return json({ id }); // Return the ID of the (supposedly) deleted item
     } catch (error) {
-      console.error("Failed to delete todo:", error);
-      // Ensure a proper error response format if possible
+      console.error(`DELETE [query param]: Failed to delete todo with id: ${id}:`, error);
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
       return json(
