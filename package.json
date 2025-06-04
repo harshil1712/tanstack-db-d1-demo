@@ -4,6 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
+    "prebuild": "npx wrangler d1 execute DB --file=./db/schema.sql --remote",
     "dev": "vinxi dev",
     "build": "vinxi build",
     "start": "vinxi start"
