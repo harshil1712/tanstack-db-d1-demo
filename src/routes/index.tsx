@@ -7,7 +7,7 @@ import {
 import { createQueryCollection } from "@tanstack/db-collections";
 import { QueryClient } from "@tanstack/query-core";
 import { z } from "zod";
-import React from "react"; // Import React for useState
+import React from "react";
 
 export const TodoSchema = z.object({
   id: z.string(),
@@ -117,10 +117,8 @@ function Home() {
       const { original } = mutation;
 
       try {
-        console.log("Delete with useOptimisticMutation, sending ID in URL query param");
         const response = await fetch(`/api/todos?id=${original.id}`, {
           method: "DELETE",
-          // No Content-Type header or body needed for this DELETE request
         });
         if (!response.ok) {
           const errorText = await response.text();
@@ -170,7 +168,6 @@ function Home() {
 
   const handleDelete = (todoItem: Todo) => {
     deleteMutation.mutate(() => {
-      console.log("Delete inside handleDelete -> mutate");
       todoCollection.delete(
         Array.from(todoCollection.state.values()).find(
           (todo) => todo.id === todoItem.id
