@@ -108,7 +108,11 @@ export const APIRoute = createAPIFileRoute("/api/todos")({
 
       const { id } = body;
 
-      await DB.prepare("DELETE FROM todos WHERE id = ?").bind(id).run();
+      console.log(`Attempting to delete todo with id: ${id}`);
+      await DB.prepare("DELETE FROM todos WHERE id = ? RETURNING id")
+        .bind(id)
+        .run();
+      console.log(`Successfully deleted todo with id: ${id}`);
 
       return json({ id });
     } catch (error) {
